@@ -15,7 +15,6 @@ st.markdown("---")
 file_path = "Yalcin_Market_Gelismis_Teknik_Servis_Takip_Sistemi.xlsx"
 
 
-# Dosya yoksa otomatik oluşturan fonksiyon
 def ensure_excel_exists():
     if not os.path.exists(file_path):
         wb = openpyxl.Workbook()
@@ -171,19 +170,13 @@ if not df_ariza.empty and "Şube Adı" in df_ariza.columns:
                 wb = openpyxl.load_workbook(file_path)
                 ws = wb["Arıza Takip Listesi"]
 
-                # Excel'deki satırları tarayarak doğru sıra numarasına sahip satırı bulup güncelleyelim
-                # Not: Excel tablosu 17. satırdan (index 17) başlıyor (16. satır başlık)
                 bulundu = False
                 for row in range(17, ws.max_row + 1):
-                    sira_hucre = ws.cell(row=row, column=2).value  Oluşan Sıra kolonu
+                    sira_hucre = ws.cell(row=row, column=2).value
                     if str(sira_hucre) == str(secilen_sira):
-                        ws.cell(row=row, column=8, value=yeni_durum)  Durum (Kolon H -> 8)
-                        ws.cell(
-                            row=row, column=9, value=atanan_personel
-                        )  Atanan Personel (Kolon I -> 9)
-                        ws.cell(
-                            row=row, column=11, value=cozum_aciklamasi
-                        )  Çözüm Açıklaması (Kolon K -> 11)
+                        ws.cell(row=row, column=8, value=yeni_durum)
+                        ws.cell(row=row, column=9, value=atanan_personel)
+                        ws.cell(row=row, column=11, value=cozum_aciklamasi)
                         bulundu = True
                         break
 
