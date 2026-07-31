@@ -16,7 +16,6 @@ file_path = "Yalcin_Market_Gelismis_Teknik_Servis_Takip_Sistemi.xlsx"
 
 
 def ensure_excel_exists():
-    # Bozuk veya artık dosya varsa temizleyip sıfırdan kuralım
     if os.path.exists(file_path):
         try:
             df_test = pd.read_excel(
@@ -59,7 +58,6 @@ def ensure_excel_exists():
             if header:
                 ws.cell(row=17, column=col_idx, value=header)
 
-        # Başlangıç örnek verileri
         ornekler = [
             [
                 None,
@@ -116,14 +114,12 @@ def ensure_excel_exists():
 ensure_excel_exists()
 
 
-@st.cache_data
 def load_data():
     try:
         df = pd.read_excel(file_path, sheet_name="Arıza Takip Listesi", skiprows=16)
         if "Sıra" not in df.columns and len(df.columns) > 1:
             df.columns = df.iloc[0]
             df = df.iloc[1:].reset_index(drop=True)
-        # Sadece arıza açıklaması olan geçerli satırları al
         df = df.dropna(subset=["Sorun / Arıza Açıklaması"])
         return df
     except Exception:
@@ -172,6 +168,25 @@ with col4:
     )
     st.metric("SLA Geciken", geciken, delta_color="inverse")
 
+st.markdown("---")
+
+# --- YÖNETİCİ DASHBOARD VE GRAFİKLER ---
+st.markdown("### 📊 Yönetici Dashboard ve Analiz Grafikleri")
+
+if not df_ariza.empty:
+    g_col1, g_col2 = st.columns(2)
+
+    with g_col1:
+        st.markdown("#### Şubelere Göre Arıza Dağılımı")
+        sube_data = df_ariza["Şube Adı"].value_counts()
+        st.bar_chart(sube_data)
+
+    with g_col2:
+        st.markdown("#### Arıza Kategorileri Dağılımı")
+        kat_data = df_ariza["Kategori"].value_counts()
+        st.bar_chart(kat_data, color="#7c3aed")
+
+st.markdown("---")
 st.markdown("### 📋 Arıza Takip Listesi")
 
 if not df_ariza.empty and "Şube Adı" in df_ariza.columns:
@@ -251,7 +266,6 @@ if not df_ariza.empty and "Şube Adı" in df_ariza.columns:
                     st.success(
                         f"#{secilen_sira} numaralı arıza başarıyla güncellendi!"
                     )
-                    st.cache_data.clear()
                     st.rerun()
                 else:
                     st.error("Arıza kaydı Excel dosyasında bulunamadı.")
@@ -298,10 +312,9 @@ with st.sidebar.form("ariza_form"):
                 wb = openpyxl.load_workbook(file_path)
                 ws = wb["Arıza Takip Listesi"]
 
-                # Gerçek dolu son satırı bulalım
                 gercek_son_satir = 17
                 for r in range(18, ws.max_row + 2):
-                    val = ws.cell(row=r, column=5).value  # Açıklama sütunu
+                    val = ws.cell(row=r, column=5).value
                     if val is not None and str(val).strip() != "":
                         gercek_son_satir = r
 
@@ -325,7 +338,6 @@ with st.sidebar.form("ariza_form"):
                 st.sidebar.success(
                     "Arıza kaydı Excel dosyasına başarıyla eklendi!"
                 )
-                st.cache_data.clear()
                 st.rerun()
             except Exception as e:
                 st.sidebar.error(f"Kayıt eklenirken hata oluştu: {e}")
