@@ -40,12 +40,11 @@ def ensure_excel_exists():
         ws.title = "Arıza Takip Listesi"
         ws.cell(
             row=1,
-            column=2,
+            column=1,
             value="YALÇIN MARKET - DETAYLI TEKNİK ARIZA VE MÜDAHALE TAKİP FORMU",
         )
 
         headers = [
-            None,
             "Sıra",
             "Bildirim Tarih/Saat",
             "Şube Adı",
@@ -59,13 +58,11 @@ def ensure_excel_exists():
             "Fotoğraf / Belge",
             "Yön. Onay",
         ]
-        for col_idx, header in enumerate(headers):
-            if header:
-                ws.cell(row=17, column=col_idx, value=header)
+        for col_idx, header in enumerate(headers, start=1):
+            ws.cell(row=17, column=col_idx, value=header)
 
         ornekler = [
             [
-                None,
                 1,
                 "2026-07-29 08:30",
                 "Merkez Şube",
@@ -80,7 +77,6 @@ def ensure_excel_exists():
                 "Onaylandı",
             ],
             [
-                None,
                 2,
                 "2026-07-29 09:15",
                 "Şube 02 - Bahçelievler",
@@ -95,7 +91,6 @@ def ensure_excel_exists():
                 "Bekliyor",
             ],
             [
-                None,
                 3,
                 "2026-07-29 10:00",
                 "Merkez Şube",
@@ -112,9 +107,8 @@ def ensure_excel_exists():
         ]
 
         for idx, satir in enumerate(ornekler):
-            for col_idx, val in enumerate(satir):
-                if val is not None:
-                    ws.cell(row=18 + idx, column=col_idx, value=val)
+            for col_idx, val in enumerate(satir, start=1):
+                ws.cell(row=18 + idx, column=col_idx, value=val)
 
         wb.save(file_path)
 
@@ -147,7 +141,6 @@ def calculate_sla(df):
 def load_data():
     try:
         df = pd.read_excel(file_path, sheet_name="Arıza Takip Listesi", skiprows=16)
-        # Sadece geçerli sütunları alıp gereksiz (Unnamed vb.) sütunları temizleyelim
         expected_cols = [
             "Sıra",
             "Bildirim Tarih/Saat",
@@ -163,19 +156,14 @@ def load_data():
             "Yön. Onay",
         ]
 
-        # Eğer sütunlar kaydıysa veya farklı geldiyse ilk satırı header yapma denemesi
-        if "Sıra" not in df.columns and len(df.columns) > 1:
+        if "Sıra" not in df.columns and len(df.columns) > 0:
             df.columns = df.iloc[0]
             df = df.iloc[1:].reset_index(drop=True)
 
-        # Sadece beklenen sütunları seç (Fazlalık Unnamed sütunları atar)
         available_cols = [col for col in expected_cols if col in df.columns]
         df = df[available_cols]
-
-        # Boş satırları temizle
         df = df.dropna(subset=["Sorun / Arıza Açıklaması"])
 
-        # Sıra sütununu temiz tam sayıya (int) dönüştür
         if "Sıra" in df.columns:
             df["Sıra"] = pd.to_numeric(df["Sıra"], errors="coerce")
             df = df.dropna(subset=["Sıra"])
@@ -412,15 +400,15 @@ with st.form("guncelleme_formu"):
 
             bulundu = False
             for row in range(18, ws.max_row + 1):
-                sira_hucre = ws.cell(row=row, column=2).value
+                sira_hucre = ws.cell(row=row, column=1).value
                 if sira_hucre is not None and str(sira_hucre).split(".")[
                     0
                 ] == str(secilen_sira):
-                    ws.cell(row=row, column=8, value=yeni_durum)
-                    ws.cell(row=row, column=9, value=atanan_personel)
-                    ws.cell(row=row, column=11, value=cozum_aciklamasi)
+                    ws.cell(row=row, column=7, value=yeni_durum)
+                    ws.cell(row=row, column=8, value=atanan_personel)
+                    ws.cell(row=row, column=10, value=cozum_aciklamasi)
                     if kaydedilen_dosya_adi != "Yok":
-                        ws.cell(row=row, column=12, value=kaydedilen_dosya_adi)
+                        ws.cell(row=row, column=11, value=kaydedilen_dosya_adi)
                     bulundu = True
                     break
 
@@ -475,7 +463,7 @@ with st.sidebar.form("ariza_form"):
 
                 gercek_son_satir = 17
                 for r in range(18, ws.max_row + 2):
-                    val = ws.cell(row=r, column=5).value
+                    val = ws.cell(row=r, column=4).value
                     if val is not None and str(val).strip() != "":
                         gercek_son_satir = r
 
@@ -493,15 +481,16 @@ with st.sidebar.form("ariza_form"):
                     ) as f:
                         f.write(yuklenen_dosya_ariza.getbuffer())
 
-                ws.cell(row=yeni_hedef_satir, column=2, value=yeni_sira)
-                ws.cell(row=yeni_hedef_satir, column=3, value=simdiki_zaman)
-                ws.cell(row=yeni_hedef_satir, column=4, value=yeni_sube)
-                ws.cell(row=yeni_hedef_satir, column=5, value=yeni_aciklama)
-                ws.cell(row=yeni_hedef_satir, column=6, value=yeni_kategori)
-                ws.cell(row=yeni_hedef_satir, column=7, value=yeni_oncelik)
-                ws.cell(row=yeni_hedef_satir, column=8, value="Devam Ediyor")
-                ws.cell(row=yeni_hedef_satir, column=9, value="Atanmadı")
-                ws.cell(row=yeni_hedef_satir, column=10, value="Devam Ediyor")
+                ws.cell(row=yeni_hedef_satir, column=1, value=yeni_sira)
+                ws.cell(row=yeni_hedef_satir, column=2, value=simdiki_zaman)
+                ws.cell(row=yeni_hedef_satir, column=3, value=yeni_sube)
+                ws.cell(row=yeni_hedef_satir, column=4, value=yeni_aciklama)
+                ws.cell(row=yeni_hedef_satir, column=5, value=yeni_kategori)
+                ws.cell(row=yeni_hedef_satir, column=6, value=yeni_oncelik)
+                ws.cell(row=yeni_hedef_satir, column=7, value="Devam Ediyor")
+                ws.cell(row=yeni_hedef_satir, column=8, value="Atanmadı")
+                ws.cell(row=yeni_hedef_satir, column=9, value="Devam Ediyor")
+                ws.cell(row=yeni_hedef_satir, column=10, value="İşlem Bekliyor")
                 ws.cell(
                     row=yeni_hedef_satir, column=11, value=kaydedilen_dosya_adi
                 )
