@@ -123,10 +123,6 @@ ensure_excel_exists()
 
 
 def calculate_sla(df):
-    """Otomatik SLA Takip Mantığı:
-    Devam eden arızalarda bildirim tarihinden itibaren geçen süreyi hesaplar.
-    Kritik arızalar 24 saati geçmişse SLA 'Gecikti' olarak güncellenir.
-    """
     if df.empty:
         return df
 
@@ -137,8 +133,6 @@ def calculate_sla(df):
                 tarih_str = str(row["Bildirim Tarih/Saat"])
                 tarih_obj = datetime.strptime(tarih_str, "%Y-%m-%d %H:%M")
                 gecen_saat = (now - tarih_obj).total_seconds() / 3600
-
-                # Kritik arızalarda 24 saat, normalde 48 saat sınırı
                 limit_saat = 24 if row["Öncelik"] == "Kritik" else 48
 
                 if gecen_saat > limit_saat:
@@ -153,10 +147,40 @@ def calculate_sla(df):
 def load_data():
     try:
         df = pd.read_excel(file_path, sheet_name="Arıza Takip Listesi", skiprows=16)
+        # Sadece geçerli sütunları alıp gereksiz (Unnamed vb.) sütunları temizleyelim
+        expected_cols = [
+            "Sıra",
+            "Bildirim Tarih/Saat",
+            "Şube Adı",
+            "Sorun / Arıza Açıklaması",
+            "Kategori",
+            "Öncelik",
+            "Durum",
+            "Atanan Personel",
+            "SLA Durumu",
+            "Çözüm Süresi / Açıklama",
+            "Fotoğraf / Belge",
+            "Yön. Onay",
+        ]
+
+        # Eğer sütunlar kaydıysa veya farklı geldiyse ilk satırı header yapma denemesi
         if "Sıra" not in df.columns and len(df.columns) > 1:
             df.columns = df.iloc[0]
             df = df.iloc[1:].reset_index(drop=True)
+
+        # Sadece beklenen sütunları seç (Fazlalık Unnamed sütunları atar)
+        available_cols = [col for col in expected_cols if col in df.columns]
+        df = df[available_cols]
+
+        # Boş satırları temizle
         df = df.dropna(subset=["Sorun / Arıza Açıklaması"])
+
+        # Sıra sütununu temiz tam sayıya (int) dönüştür
+        if "Sıra" in df.columns:
+            df["Sıra"] = pd.to_numeric(df["Sıra"], errors="coerce")
+            df = df.dropna(subset=["Sıra"])
+            df["Sıra"] = df["Sıra"].astype(int)
+
         df = calculate_sla(df)
         return df
     except Exception:
@@ -285,9 +309,8 @@ if secilen_durum != "Tümü":
 # --- ARIZA LİSTESİ TABLOSU VE İNDİRME BUTONLARI ---
 col_t1, col_t2 = st.columns([3, 1])
 with col_t1:
-    st.markdown(f"### 📋 Arıza Takip Listesi ({len(df_goster)} Kayıt Found)")
+    st.markdown(f"### 📋 Arıza Takip Listesi ({len(df_goster)} Kayıt)")
 with col_t2:
-    # Excel Rapor İndirme Butonu
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df_goster.to_excel(
@@ -307,7 +330,7 @@ if not df_goster.empty:
 else:
     st.info("Filtreleme kriterlerine uygun arıza kaydı bulunamadı.")
 
-# --- YÜKLENEN GÖRSELLERİ/BELGELERİ İNCELEME ---
+# --- YÜKLENEN GÖRSELLERİ İNCELEME ---
 if not df_ariza.empty and "Fotoğraf / Belge" in df_ariza.columns:
     gorselli_arizalar = df_ariza[
         (df_ariza["Fotoğraf / Belge"].notna())
@@ -344,9 +367,13 @@ with st.form("guncelleme_formu"):
     col_g1, col_g2, col_g3 = st.columns(3)
 
     with col_g1:
+        sira_listesi = (
+            df_ariza["Sıra"].astype(int).tolist()
+            if not df_ariza.empty
+            else []
+        )
         secilen_sira = st.selectbox(
-            "İşlem Yapılacak Arıza (Sıra No)",
-            df_ariza["Sıra"].astype(str).tolist() if not df_ariza.empty else [],
+            "İşlem Yapılacak Arıza (Sıra No)", sira_listesi
         )
     with col_g2:
         yeni_durum = st.selectbox(
@@ -386,9 +413,9 @@ with st.form("guncelleme_formu"):
             bulundu = False
             for row in range(18, ws.max_row + 1):
                 sira_hucre = ws.cell(row=row, column=2).value
-                if sira_hucre is not None and str(sira_hucre) == str(
-                    secilen_sira
-                ):
+                if sira_hucre is not None and str(sira_hucre).split(".")[
+                    0
+                ] == str(secilen_sira):
                     ws.cell(row=row, column=8, value=yeni_durum)
                     ws.cell(row=row, column=9, value=atanan_personel)
                     ws.cell(row=row, column=11, value=cozum_aciklamasi)
@@ -475,11 +502,10 @@ with st.sidebar.form("ariza_form"):
                 ws.cell(row=yeni_hedef_satir, column=8, value="Devam Ediyor")
                 ws.cell(row=yeni_hedef_satir, column=9, value="Atanmadı")
                 ws.cell(row=yeni_hedef_satir, column=10, value="Devam Ediyor")
-                ws.cell(row=yeni_hedef_satir, column=11, value="İşlem Bekliyor")
                 ws.cell(
-                    row=yeni_hedef_satir, column=12, value=kaydedilen_dosya_adi
+                    row=yeni_hedef_satir, column=11, value=kaydedilen_dosya_adi
                 )
-                ws.cell(row=yeni_hedef_satir, column=13, value="Bekliyor")
+                ws.cell(row=yeni_hedef_satir, column=12, value="Bekliyor")
 
                 wb.save(file_path)
                 st.sidebar.success("Arıza kaydı fotoğrafla birlikte eklendi!")
