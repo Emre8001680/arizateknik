@@ -9,6 +9,9 @@ st.set_page_config(
     layout="wide",
 )
 
+st.title("🛠️ Yalçın Market Teknik Servis ve Arıza Takip Sistemi")
+st.markdown("---")
+
 file_path = "Yalcin_Market_Gelismis_Teknik_Servis_Takip_Sistemi.xlsx"
 
 
@@ -139,44 +142,6 @@ def load_data():
 
 df_ariza = load_data()
 
-# --- GİRİŞ VE YETKİLENDİRME SİSTEMİ ---
-if "giris_yapildi" not in st.session_state:
-    st.session_state["giris_yapildi"] = False
-    st.session_state["kullanici_rolu"] = "Misafir"
-    st.session_state["kullanici_adi"] = ""
-
-st.sidebar.markdown("### 🔐 Kullanıcı Giriş Paneli")
-if not st.session_state["giris_yapildi"]:
-    secilen_rol = st.sidebar.selectbox(
-        "Rol Seçin", ["Yönetici", "Şube Yetkilisi", "Teknik Personel"]
-    )
-    k_adi = st.sidebar.text_input("Kullanıcı Adı")
-    sifre = st.sidebar.text_input("Şifre", type="password")
-
-    if st.sidebar.button("Giriş Yap"):
-        if k_adi and sifre:  # Basit simülasyon kontrolü
-            st.session_state["giris_yapildi"] = True
-            st.session_state["kullanici_rolu"] = secilen_rol
-            st.session_state["kullanici_adi"] = k_adi
-            st.sidebar.success(f"Hoş geldiniz, {k_adi} ({secilen_rol})")
-            st.rerun()
-        else:
-            st.sidebar.error("Lütfen kullanıcı adı ve şifre girin!")
-    st.stop()
-else:
-    st.sidebar.info(
-        f"Oturum Açık: **{st.session_state['kullanici_adi']}**\nRol: **{st.session_state['kullanici_rolu']}**"
-    )
-    if st.sidebar.button("Çıkış Yap"):
-        st.session_state["giris_yapildi"] = False
-        st.session_state["kullanici_rolu"] = "Misafir"
-        st.session_state["kullanici_adi"] = ""
-        st.rerun()
-
-st.title("🛠️ Yalçın Market Teknik Servis ve Arıza Takip Sistemi")
-st.markdown(f"Aktif Rol Yetkisi: **{st.session_state['kullanici_rolu']}**")
-st.markdown("---")
-
 # Üst Özet Kartları (KPIs)
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -206,18 +171,17 @@ with col4:
 st.markdown("---")
 
 # --- YÖNETİCİ DASHBOARD VE GRAFİKLER ---
-if st.session_state["kullanici_rolu"] == "Yönetici":
-    st.markdown("### 📊 Yönetici Dashboard ve Analiz Grafikleri")
-    if not df_ariza.empty:
-        g_col1, g_col2 = st.columns(2)
-        with g_col1:
-            st.markdown("#### Şubelere Göre Arıza Dağılımı")
-            st.bar_chart(df_ariza["Şube Adı"].value_counts())
-        with g_col2:
-            st.markdown("#### Arıza Kategorileri Dağılımı")
-            st.bar_chart(df_ariza["Kategori"].value_counts(), color="#7c3aed")
-    st.markdown("---")
+st.markdown("### 📊 Yönetici Dashboard ve Analiz Grafikleri")
+if not df_ariza.empty:
+    g_col1, g_col2 = st.columns(2)
+    with g_col1:
+        st.markdown("#### Şubelere Göre Arıza Dağılımı")
+        st.bar_chart(df_ariza["Şube Adı"].value_counts())
+    with g_col2:
+        st.markdown("#### Arıza Kategorileri Dağılımı")
+        st.bar_chart(df_ariza["Kategori"].value_counts(), color="#7c3aed")
 
+st.markdown("---")
 st.markdown("### 📋 Arıza Takip Listesi")
 
 if not df_ariza.empty and "Şube Adı" in df_ariza.columns:
@@ -247,75 +211,68 @@ if not df_ariza.empty and "Şube Adı" in df_ariza.columns:
         use_container_width=True,
     )
 
-    # --- ARIZA DURUMU VE ÇÖZÜM GÜNCELLEME (Yönetici ve Teknik Personel Yetkisi) ---
-    if st.session_state["kullanici_rolu"] in ["Yönetici", "Teknik Personel"]:
-        st.markdown("---")
-        st.markdown("### ⚙️ Arıza Müdahale ve Durum Güncelleme")
+    # --- ARIZA DURUMU VE ÇÖZÜM GÜNCELLEME ---
+    st.markdown("---")
+    st.markdown("### ⚙️ Arıza Müdahale ve Durum Güncelleme")
 
-        with st.form("guncelleme_formu"):
-            col_g1, col_g2, col_g3 = st.columns(3)
+    with st.form("guncelleme_formu"):
+        col_g1, col_g2, col_g3 = st.columns(3)
 
-            with col_g1:
-                secilen_sira = st.selectbox(
-                    "İşlem Yapılacak Arıza (Sıra No)",
-                    df_ariza["Sıra"].astype(str).tolist(),
-                )
-            with col_g2:
-                yeni_durum = st.selectbox(
-                    "Yeni Durum", ["Devam Ediyor", "Tamamlandı", "İptal Edildi"]
-                )
-            with col_g3:
-                atanan_personel = st.text_input(
-                    "Atanan Teknik Personel",
-                    value=st.session_state["kullanici_adi"],
-                )
-
-            cozum_aciklamasi = st.text_area(
-                "Çözüm Açıklaması / Yapılan İşlem",
-                placeholder="Örn: Parça değiştirildi, test edildi.",
+        with col_g1:
+            secilen_sira = st.selectbox(
+                "İşlem Yapılacak Arıza (Sıra No)",
+                df_ariza["Sıra"].astype(str).tolist(),
+            )
+        with col_g2:
+            yeni_durum = st.selectbox(
+                "Yeni Durum", ["Devam Ediyor", "Tamamlandı", "İptal Edildi"]
+            )
+        with col_g3:
+            atanan_personel = st.text_input(
+                "Atanan Teknik Personel", value="Ali Usta"
             )
 
-            guncelle_submit = st.form_submit_button("Arızayı Güncelle")
-
-            if guncelle_submit:
-                try:
-                    wb = openpyxl.load_workbook(file_path)
-                    ws = wb["Arıza Takip Listesi"]
-
-                    bulundu = False
-                    for row in range(18, ws.max_row + 1):
-                        sira_hucre = ws.cell(row=row, column=2).value
-                        if sira_hucre is not None and str(sira_hucre) == str(
-                            secilen_sira
-                        ):
-                            ws.cell(row=row, column=8, value=yeni_durum)
-                            ws.cell(row=row, column=9, value=atanan_personel)
-                            ws.cell(row=row, column=11, value=cozum_aciklamasi)
-                            bulundu = True
-                            break
-
-                    if bulundu:
-                        wb.save(file_path)
-                        st.success(
-                            f"#{secilen_sira} numaralı arıza başarıyla güncellendi!"
-                        )
-                        st.rerun()
-                    else:
-                        st.error("Arıza kaydı Excel dosyasında bulunamadı.")
-                except Exception as e:
-                    st.error(f"Güncelleme sırasında hata oluştu: {e}")
-    else:
-        st.info(
-            "ℹ️ Arıza durumlarını güncellemek için 'Yönetici' veya 'Teknik Personel' rolüyle giriş yapmalısınız."
+        cozum_aciklamasi = st.text_area(
+            "Çözüm Açıklaması / Yapılan İşlem",
+            placeholder="Örn: Parça değiştirildi, test edildi.",
         )
+
+        guncelle_submit = st.form_submit_button("Arızayı Güncelle")
+
+        if guncelle_submit:
+            try:
+                wb = openpyxl.load_workbook(file_path)
+                ws = wb["Arıza Takip Listesi"]
+
+                bulundu = False
+                for row in range(18, ws.max_row + 1):
+                    sira_hucre = ws.cell(row=row, column=2).value
+                    if sira_hucre is not None and str(sira_hucre) == str(
+                        secilen_sira
+                    ):
+                        ws.cell(row=row, column=8, value=yeni_durum)
+                        ws.cell(row=row, column=9, value=atanan_personel)
+                        ws.cell(row=row, column=11, value=cozum_aciklamasi)
+                        bulundu = True
+                        break
+
+                if bulundu:
+                    wb.save(file_path)
+                    st.success(
+                        f"#{secilen_sira} numaralı arıza başarıyla güncellendi!"
+                    )
+                    st.rerun()
+                else:
+                    st.error("Arıza kaydı Excel dosyasında bulunamadı.")
+            except Exception as e:
+                st.error(f"Güncelleme sırasında hata oluştu: {e}")
 
 else:
     st.info(
         "Henüz arıza kaydı bulunmuyor. Sol menüden ilk arıza kaydınızı oluşturabilirsiniz."
     )
 
-# --- YENİ ARIZA KAYDI FORMU (SİDEBAR - Herkes / Şube Yetkilisi) ---
-st.sidebar.markdown("---")
+# --- YENİ ARIZA KAYDI FORMU (SİDEBAR) ---
 st.sidebar.header("➕ Yeni Arıza Bildirimi")
 with st.sidebar.form("ariza_form"):
     yeni_sube = st.selectbox(
