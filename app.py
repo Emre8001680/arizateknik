@@ -51,12 +51,12 @@ ensure_excel_exists()
 @st.cache_data
 def load_data():
     try:
-        # Gerçek Excel tablonuzun başlığı 17. satırda (skiprows=16)
         df = pd.read_excel(file_path, sheet_name="Arıza Takip Listesi", skiprows=16)
         if "Sıra" not in df.columns and len(df.columns) > 1:
             df.columns = df.iloc[0]
             df = df.iloc[1:].reset_index(drop=True)
-        df = df.dropna(subset=["Sıra"])
+        # Sadece arıza açıklaması dolu olan gerçek kayıtları alalım (boş satırları eleyelim)
+        df = df.dropna(subset=["Sorun / Arıza Açıklaması"])
         return df
     except Exception:
         return pd.DataFrame(
@@ -234,16 +234,16 @@ with st.sidebar.form("ariza_form"):
                     else wb.active
                 )
 
-                # Gerçekten dolu olan son satırı bulup hemen altına ekleyelim
-                son_dolu_satir = 17
+                # Gerçek dolu son satırı bulmak için açıklama kolonuna (kolon 5) bakıyoruz
+                gercek_son_satir = 17
                 for r in range(18, ws.max_row + 2):
                     if (
-                        ws.cell(row=r, column=2).value is not None
-                        and ws.cell(row=r, column=2).value != ""
+                        ws.cell(row=r, column=5).value is not None
+                        and str(ws.cell(row=r, column=5).value).strip() != ""
                     ):
-                        son_dolu_satir = r
+                        gercek_son_satir = r
 
-                yeni_hedef_satir = son_dolu_satir + 1
+                yeni_hedef_satir = gercek_son_satir + 1
                 yeni_sira = len(df_ariza) + 1
                 simdiki_zaman = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
 
@@ -253,14 +253,10 @@ with st.sidebar.form("ariza_form"):
                 ws.cell(row=yeni_hedef_satir, column=5, value=yeni_aciklama)
                 ws.cell(row=yeni_hedef_satir, column=6, value=yeni_kategori)
                 ws.cell(row=yeni_hedef_satir, column=7, value=yeni_oncelik)
-                ws.cell(
-                    row=yeni_hedef_satir, column=8, value="Devam Ediyor"
-                )  # Durum
+                ws.cell(row=yeni_hedef_satir, column=8, value="Devam Ediyor")
                 ws.cell(row=yeni_hedef_satir, column=9, value="Atanmadı")
                 ws.cell(row=yeni_hedef_satir, column=10, value="Zamanında")
-                ws.cell(
-                    row=yeni_hedef_satir, column=11, value="İşlem Bekliyor"
-                )
+                ws.cell(row=yeni_hedef_satir, column=11, value="İşlem Bekliyor")
                 ws.cell(row=yeni_hedef_satir, column=12, value="Bekliyor")
 
                 wb.save(file_path)
