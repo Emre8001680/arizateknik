@@ -22,7 +22,6 @@ def ensure_excel_exists():
         ws = wb.active
         ws.title = "Arıza Takip Listesi"
 
-        # Başlık satırlarını ve örnek tablo başlığını yazalım
         ws.cell(
             row=1,
             column=2,
@@ -30,7 +29,6 @@ def ensure_excel_exists():
         )
         ws.cell(row=2, column=2, value="SLA Süreçleri ve Durum Takibi")
 
-        # Tablo başlıkları (16. satır)
         headers = [
             None,
             "Sıra",
@@ -66,7 +64,6 @@ def load_data():
         df = df.dropna(subset=["Sıra"])
         return df
     except Exception:
-        # Eğer sayfa yapısı farklıysa boş bir şablon döndür
         return pd.DataFrame(
             columns=[
                 "Sıra",
@@ -135,16 +132,79 @@ if not df_ariza.empty and "Şube Adı" in df_ariza.columns:
                 "Durum",
                 "Atanan Personel",
                 "SLA Durumu",
+                "Çözüm Süresi / Açıklama",
             ]
         ],
         use_container_width=True,
     )
+
+    # --- ARIZA DURUMU VE ÇÖZÜM GÜNCELLEME ALANI ---
+    st.markdown("---")
+    st.markdown("### ⚙️ Arıza Müdahale ve Durum Güncelleme")
+
+    with st.form("guncelleme_formu"):
+        col_g1, col_g2, col_g3 = st.columns(3)
+
+        with col_g1:
+            secilen_sira = st.selectbox(
+                "İşlem Yapılacak Arıza (Sıra No)",
+                df_ariza["Sıra"].astype(str).tolist(),
+            )
+        with col_g2:
+            yeni_durum = st.selectbox(
+                "Yeni Durum", ["Devam Ediyor", "Tamamlandı", "İptal Edildi"]
+            )
+        with col_g3:
+            atanan_personel = st.text_input(
+                "Atanan Teknik Personel", value="Ali Usta"
+            )
+
+        cozum_aciklamasi = st.text_area(
+            "Çözüm Açıklaması / Yapılan İşlem",
+            placeholder="Örn: Parça değiştirildi, test edildi.",
+        )
+
+        guncelle_submit = st.form_submit_button("Arızayı Güncelle")
+
+        if guncelle_submit:
+            try:
+                wb = openpyxl.load_workbook(file_path)
+                ws = wb["Arıza Takip Listesi"]
+
+                # Excel'deki satırları tarayarak doğru sıra numarasına sahip satırı bulup güncelleyelim
+                # Not: Excel tablosu 17. satırdan (index 17) başlıyor (16. satır başlık)
+                bulundu = False
+                for row in range(17, ws.max_row + 1):
+                    sira_hucre = ws.cell(row=row, column=2).value  Oluşan Sıra kolonu
+                    if str(sira_hucre) == str(secilen_sira):
+                        ws.cell(row=row, column=8, value=yeni_durum)  Durum (Kolon H -> 8)
+                        ws.cell(
+                            row=row, column=9, value=atanan_personel
+                        )  Atanan Personel (Kolon I -> 9)
+                        ws.cell(
+                            row=row, column=11, value=cozum_aciklamasi
+                        )  Çözüm Açıklaması (Kolon K -> 11)
+                        bulundu = True
+                        break
+
+                if bulundu:
+                    wb.save(file_path)
+                    st.success(
+                        f"#{secilen_sira} numaralı arıza başarıyla güncellendi!"
+                    )
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error("Arıza kaydı Excel dosyasında bulunamadı.")
+            except Exception as e:
+                st.error(f"Güncelleme sırasında hata oluştu: {e}")
+
 else:
     st.info(
         "Henüz arıza kaydı bulunmuyor. Sol menüden ilk arıza kaydınızı oluşturabilirsiniz."
     )
 
-# Yeni Arıza Kaydı Formu (Sidebar)
+# --- YENİ ARIZA KAYDI FORMU (SİDEBAR) ---
 st.sidebar.header("➕ Yeni Arıza Bildirimi")
 with st.sidebar.form("ariza_form"):
     yeni_sube = st.selectbox(
@@ -177,10 +237,11 @@ with st.sidebar.form("ariza_form"):
         else:
             try:
                 wb = openpyxl.load_workbook(file_path)
-                if "Arıza Takip Listesi" in wb.sheetnames:
-                    ws = wb["Arıza Takip Listesi"]
-                else:
-                    ws = wb.active
+                ws = (
+                    wb["Arıza Takip Listesi"]
+                    if "Arıza Takip Listesi" in wb.sheetnames
+                    else wb.active
+                )
 
                 yeni_sira = len(df_ariza) + 1
                 simdiki_zaman = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
