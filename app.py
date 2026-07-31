@@ -1,3 +1,4 @@
+import openpyxl
 import pandas as pd
 import streamlit as st
 
@@ -15,15 +16,10 @@ file_path = "Yalcin_Market_Gelismis_Teknik_Servis_Takip_Sistemi.xlsx"
 
 @st.cache_data
 def load_data():
-    # Başlıkların olduğu satırı doğru okumak için skiprows=15 yapıp ilk satırı kolon yapıyoruz
     df = pd.read_excel(file_path, sheet_name="Arıza Takip Listesi", skiprows=15)
-    df.columns = df.iloc[
-        0
-    ]  # İlk satırı kolon isimleri olarak ata (Sıra, Şube Adı vs.)
-    df = df.iloc[1:].reset_index(drop=True)  # Başlık satırını veri tabanından sil
-    df = df.dropna(
-        subset=["Sıra"]
-    )  # Sıra numarası boş olan (boş) satırları temizle
+    df.columns = df.iloc[0]  # İlk satırı kolon isimleri yap
+    df = df.iloc[1:].reset_index(drop=True)
+    df = df.dropna(subset=["Sıra"])
     return df
 
 
@@ -76,7 +72,13 @@ st.dataframe(
 st.sidebar.header("➕ Yeni Arıza Bildirimi")
 with st.sidebar.form("ariza_form"):
     yeni_sube = st.selectbox(
-        "Şube", ["Merkez Şube", "Şube 02 - Bahçelievler", "Şube 03 - Meydan"]
+        "Şube Adı",
+        [
+            "Merkez Şube",
+            "Şube 02 - Bahçelievler",
+            "Şube 03 - Meydan",
+            "Şube 05 - Çarşı",
+        ],
     )
     yeni_kategori = st.selectbox(
         "Kategori",
@@ -84,12 +86,52 @@ with st.sidebar.form("ariza_form"):
             "Soğutma / Soğuk Zincir",
             "Kasa & IT Donanım",
             "Elektrik & Aydınlatma",
-            "HVAC",
+            "HVAC (Klima / Havalandırma)",
+            "Mekanik & Raf / Kapı",
         ],
     )
     yeni_oncelik = st.selectbox("Öncelik", ["Kritik", "Normal", "Düşük"])
     yeni_aciklama = st.text_area("Arıza Açıklaması")
 
     submit = st.form_submit_button("Arıza Kaydı Oluştur")
+
     if submit:
-        st.success("Arıza kaydı başarıyla oluşturuldu!")
+        if not yeni_aciklama.strip():
+            st.sidebar.error("Lütfen bir arıza açıklaması girin!")
+        else:
+            try:
+                # Excel dosyasına doğrudan openpyxl ile yeni satır ekleme
+                wb = openpyxl.load_workbook(file_path)
+                ws = wb["Arıza Takip Listesi"]
+
+                # Sıra numarasını otomatik bul (Mevcut kayıt sayısının 1 fazlası)
+                yeni_sira = len(df_ariza) + 1
+                simdiki_zaman = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
+
+                # Excel'de tablo 16. satırdan (index 16) sonra veri almaya başlıyor
+                # Kolon sıralaması: [Unused, Sıra, Tarih, Şube, Açıklama, Kategori, Öncelik, Durum, Personel, SLA, Çözüm, Onay]
+                yeni_satir = [
+                    None,
+                    yeni_sira,
+                    simdiki_zaman,
+                    yeni_sube,
+                    yeni_aciklama,
+                    yeni_kategori,
+                    yeni_oncelik,
+                    "Devam Ediyor",
+                    "Atanmadı",
+                    "Zamanında",
+                    "İşlem Bekliyor",
+                    "Bekliyor",
+                ]
+
+                ws.append(yeni_satir)
+                wb.save(file_path)
+
+                st.sidebar.success(
+                    "Arıza kaydı Excel dosyasına başarıyla eklendi!"
+                )
+                st.cache_data.clear()  # Önbelleği temizle ki yeni veri hemen görünsün
+                st.rerun()  # Sayfayı yenile
+            except Exception as e:
+                st.sidebar.error(f"Kayıt eklenirken hata oluştu: {e}")
