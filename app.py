@@ -20,14 +20,11 @@ def ensure_excel_exists():
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Arıza Takip Listesi"
-
         ws.cell(
             row=1,
             column=2,
             value="YALÇIN MARKET - DETAYLI TEKNİK ARIZA VE MÜDAHALE TAKİP FORMU",
         )
-        ws.cell(row=2, column=2, value="SLA Süreçleri ve Durum Takibi")
-
         headers = [
             None,
             "Sıra",
@@ -42,11 +39,9 @@ def ensure_excel_exists():
             "Çözüm Süresi / Açıklama",
             "Yön. Onay",
         ]
-        ws.row_dimensions[16].height = 25
         for col_idx, header in enumerate(headers):
             if header:
-                ws.cell(row=16, column=col_idx, value=header)
-
+                ws.cell(row=17, column=col_idx, value=header)
         wb.save(file_path)
 
 
@@ -56,7 +51,8 @@ ensure_excel_exists()
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_excel(file_path, sheet_name="Arıza Takip Listesi", skiprows=15)
+        # Gerçek Excel tablonuzun başlığı 17. satırda (skiprows=16)
+        df = pd.read_excel(file_path, sheet_name="Arıza Takip Listesi", skiprows=16)
         if "Sıra" not in df.columns and len(df.columns) > 1:
             df.columns = df.iloc[0]
             df = df.iloc[1:].reset_index(drop=True)
@@ -137,7 +133,7 @@ if not df_ariza.empty and "Şube Adı" in df_ariza.columns:
         use_container_width=True,
     )
 
-    # --- ARIZA DURUMU VE ÇÖZÜM GÜNCELLEME ALANI ---
+    # --- ARIZA DURUMU VE ÇÖZÜM GÜNCELLEME ---
     st.markdown("---")
     st.markdown("### ⚙️ Arıza Müdahale ve Durum Güncelleme")
 
@@ -171,9 +167,11 @@ if not df_ariza.empty and "Şube Adı" in df_ariza.columns:
                 ws = wb["Arıza Takip Listesi"]
 
                 bulundu = False
-                for row in range(17, ws.max_row + 1):
+                for row in range(18, ws.max_row + 1):
                     sira_hucre = ws.cell(row=row, column=2).value
-                    if str(sira_hucre) == str(secilen_sira):
+                    if sira_hucre is not None and str(sira_hucre) == str(
+                        secilen_sira
+                    ):
                         ws.cell(row=row, column=8, value=yeni_durum)
                         ws.cell(row=row, column=9, value=atanan_personel)
                         ws.cell(row=row, column=11, value=cozum_aciklamasi)
@@ -236,27 +234,36 @@ with st.sidebar.form("ariza_form"):
                     else wb.active
                 )
 
+                # Gerçekten dolu olan son satırı bulup hemen altına ekleyelim
+                son_dolu_satir = 17
+                for r in range(18, ws.max_row + 2):
+                    if (
+                        ws.cell(row=r, column=2).value is not None
+                        and ws.cell(row=r, column=2).value != ""
+                    ):
+                        son_dolu_satir = r
+
+                yeni_hedef_satir = son_dolu_satir + 1
                 yeni_sira = len(df_ariza) + 1
                 simdiki_zaman = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
 
-                yeni_satir = [
-                    None,
-                    yeni_sira,
-                    simdiki_zaman,
-                    yeni_sube,
-                    yeni_aciklama,
-                    yeni_kategori,
-                    yeni_oncelik,
-                    "Devam Ediyor",
-                    "Atanmadı",
-                    "Zamanında",
-                    "İşlem Bekliyor",
-                    "Bekliyor",
-                ]
+                ws.cell(row=yeni_hedef_satir, column=2, value=yeni_sira)
+                ws.cell(row=yeni_hedef_satir, column=3, value=simdiki_zaman)
+                ws.cell(row=yeni_hedef_satir, column=4, value=yeni_sube)
+                ws.cell(row=yeni_hedef_satir, column=5, value=yeni_aciklama)
+                ws.cell(row=yeni_hedef_satir, column=6, value=yeni_kategori)
+                ws.cell(row=yeni_hedef_satir, column=7, value=yeni_oncelik)
+                ws.cell(
+                    row=yeni_hedef_satir, column=8, value="Devam Ediyor"
+                )  # Durum
+                ws.cell(row=yeni_hedef_satir, column=9, value="Atanmadı")
+                ws.cell(row=yeni_hedef_satir, column=10, value="Zamanında")
+                ws.cell(
+                    row=yeni_hedef_satir, column=11, value="İşlem Bekliyor"
+                )
+                ws.cell(row=yeni_hedef_satir, column=12, value="Bekliyor")
 
-                ws.append(yeni_satir)
                 wb.save(file_path)
-
                 st.sidebar.success(
                     "Arıza kaydı Excel dosyasına başarıyla eklendi!"
                 )
